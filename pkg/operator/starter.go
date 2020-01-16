@@ -264,6 +264,7 @@ var RevisionSecrets = []revision.RevisionResource{
 var CertConfigMaps = []revision.RevisionResource{
 	{Name: "aggregator-client-ca"},
 	{Name: "client-ca"},
+	{Name: "bound-sa-token-signing-certs"},
 
 	// this is a copy of trusted-ca-bundle CM without the injection annotations
 	{Name: "trusted-ca-bundle", Optional: true},
@@ -275,6 +276,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
+	{Name: "bound-service-account-private-key"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},

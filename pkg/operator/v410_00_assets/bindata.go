@@ -417,7 +417,7 @@ spec:
   containers:
   - name: kube-apiserver-REVISION
     image: ${IMAGE}
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["/bin/bash", "-ec"]
     args:

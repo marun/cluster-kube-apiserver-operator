@@ -23,8 +23,8 @@ spec:
       serviceAccountName: kube-apiserver-operator
       containers:
       - name: kube-apiserver-operator
-        image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
-        imagePullPolicy: IfNotPresent
+        image: docker.io/maru/origin-cluster-kube-apiserver-operator:test
+        imagePullPolicy: Always
         ports:
         - containerPort: 8443
           name: metrics
@@ -43,9 +43,9 @@ spec:
           name: serving-cert
         env:
         - name: IMAGE
-          value: quay.io/openshift/origin-hyperkube:v4.0
+          value: docker.io/maru/origin-hyperkube:test
         - name: OPERATOR_IMAGE
-          value: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
+          value: docker.io/maru/origin-cluster-kube-apiserver-operator:test
         - name: OPERAND_IMAGE_VERSION
           value: "0.0.1-snapshot-kubernetes"
         - name: OPERATOR_IMAGE_VERSION
@@ -73,8 +73,8 @@ spec:
       - key: "node.kubernetes.io/unreachable"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120

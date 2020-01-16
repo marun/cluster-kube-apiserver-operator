@@ -86,5 +86,7 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// TODO(marun) Sync the public keys used to validate bound tokens to GlobalMachineSpecifiedConfigNamespace for use by other agents
+
 	return resourceSyncController, nil
 }
