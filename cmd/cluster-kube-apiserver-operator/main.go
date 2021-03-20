@@ -16,6 +16,7 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/gracefulmonitor"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
@@ -68,6 +69,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
+	cmd.AddCommand(gracefulmonitor.NewGracefulMonitorCommand())
 
 	return cmd
 }
