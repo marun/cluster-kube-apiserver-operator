@@ -77,16 +77,40 @@ func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.Syn
 		return nil
 	}
 
+	// TODO(marun) Lookup the control plane topology rather than hard-coding
+	// Config().V1().Infrastructures().Lister().Get("cluster")
+	// if infra.Status.ConrolPlaneTopology == configv1.SingleReplicaTopologyMode {}
+	isSNO := true
+
+	podList, err := c.podsGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "apiserver=true",
+	})
+	if err != nil {
+		return err
+	}
+
 	errs := []error{}
 	failingErrorCount := 0
 	images := sets.NewString()
+
 	for _, node := range originalOperatorStatus.NodeStatuses {
-		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, mirrorPodNameForNode(c.staticPodName, node.NodeName), metav1.GetOptions{})
-		if err != nil {
-			errs = append(errs, err)
+		pods := []v1.Pod{}
+		for _, pod := range podList.Items {
+			if strings.HasSuffix(pod.Name, node.NodeName) {
+				pods = append(pods, pod)
+			}
+		}
+		if len(pods) == 0 {
+			errs = append(errs, fmt.Errorf("no pod found for node %s", node.NodeName))
 			failingErrorCount++
 			continue
 		}
+		if isSNO && len(pods) > 1 {
+			// TODO(marun) Is this enough detail?
+			errs = append(errs, fmt.Errorf("graceful rollout in progress on node %s", node.NodeName))
+			continue
+		}
+		pod := pods[0]
 		images.Insert(pod.Spec.Containers[0].Image)
 
 		for i, containerStatus := range pod.Status.ContainerStatuses {
@@ -127,7 +151,12 @@ func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.Syn
 
 	switch {
 	case len(images) == 0:
-		syncCtx.Recorder().Warningf("MissingVersion", "no image found for operand pod")
+		// if NodeStatuses is still empty, we are most probably in bootstrapping phase and this controller races with the
+		// installer controller. Hence, ignore that case. It will settle.
+
+		if len(originalOperatorStatus.NodeStatuses) > 0 {
+			syncCtx.Recorder().Warningf("MissingVersion", "no image found for operand pod")
+		}
 
 	case len(images) > 1:
 		syncCtx.Recorder().Eventf("MultipleVersions", "multiple versions found, probably in transition: %v", strings.Join(images.List(), ","))

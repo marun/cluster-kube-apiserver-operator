@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/coreos/go-iptables v0.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -33,3 +34,5 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/kube-storage-version-migrator v0.0.3
 )
+
+replace github.com/openshift/library-go => /home/maru/src/mocp/lib/library-go

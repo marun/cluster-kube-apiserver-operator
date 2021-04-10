@@ -29,8 +29,9 @@ import (
 
 type InstallOptions struct {
 	// TODO replace with genericclioptions
-	KubeConfig string
-	KubeClient kubernetes.Interface
+	KubeConfig  string
+	ProtoConfig *rest.Config
+	KubeClient  kubernetes.Interface
 
 	Revision  string
 	NodeName  string
@@ -53,14 +54,36 @@ type InstallOptions struct {
 
 	Timeout time.Duration
 
-	PodMutationFns []PodMutationFunc
+	InitializeFns          []InitializeFunc
+	CopyContentFns         []CopyContentFunc
+	PodMutationFns         []PodMutationFunc
+	SubstituteConfigMapFns []SubstituteConfigMapFunc
 }
+
+// InitializeFunc supports configuring the options after flags have been parsed
+type InitializeFunc func(o *InstallOptions) error
+
+// CopyContentFunc enables custom content copying
+type CopyContentFunc func() error
 
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
 type PodMutationFunc func(pod *corev1.Pod) error
 
+// SubstituteConfigMapFunc is a function that has a chance at substituting configmap content
+type SubstituteConfigMapFunc func(input string) string
+
 func NewInstallOptions() *InstallOptions {
 	return &InstallOptions{}
+}
+
+func (o *InstallOptions) WithInitializeFn(initializeFn InitializeFunc) *InstallOptions {
+	o.InitializeFns = append(o.InitializeFns, initializeFn)
+	return o
+}
+
+func (o *InstallOptions) WithCopyContentFn(copyContentFn CopyContentFunc) *InstallOptions {
+	o.CopyContentFns = append(o.CopyContentFns, copyContentFn)
+	return o
 }
 
 func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *InstallOptions {
@@ -68,9 +91,16 @@ func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *Insta
 	return o
 }
 
-func NewInstaller() *cobra.Command {
-	o := NewInstallOptions()
+func (o *InstallOptions) WithSubstituteConfigMapContentFn(substituteConfigMapFn SubstituteConfigMapFunc) *InstallOptions {
+	o.SubstituteConfigMapFns = append(o.SubstituteConfigMapFns, substituteConfigMapFn)
+	return o
+}
 
+func NewInstaller() *cobra.Command {
+	return NewInstallerWithOptions(NewInstallOptions())
+}
+
+func NewInstallerWithOptions(o *InstallOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "installer",
 		Short: "Install static pod and related resources",
@@ -81,6 +111,15 @@ func NewInstaller() *cobra.Command {
 			if err := o.Complete(); err != nil {
 				klog.Exit(err)
 			}
+
+			// Allow customization of pre-run state. Execute before
+			// validation to ensure that invariants are respected.
+			for _, fn := range o.InitializeFns {
+				if err := fn(o); err != nil {
+					klog.Exit(err)
+				}
+			}
+
 			if err := o.Validate(); err != nil {
 				klog.Exit(err)
 			}
@@ -125,11 +164,11 @@ func (o *InstallOptions) Complete() error {
 	}
 
 	// Use protobuf to fetch configmaps and secrets and create pods.
-	protoConfig := rest.CopyConfig(clientConfig)
-	protoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
-	protoConfig.ContentType = "application/vnd.kubernetes.protobuf"
+	o.ProtoConfig = rest.CopyConfig(clientConfig)
+	o.ProtoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
+	o.ProtoConfig.ContentType = "application/vnd.kubernetes.protobuf"
 
-	o.KubeClient, err = kubernetes.NewForConfig(protoConfig)
+	o.KubeClient, err = kubernetes.NewForConfig(o.ProtoConfig)
 	if err != nil {
 		return err
 	}
@@ -334,9 +373,21 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	}
 	finalPodBytes := resourceread.WritePodV1OrDie(pod)
 
+	baseFileName := o.PodConfigMapNamePrefix
+
+	// If the pod name is suffixed with the revision, graceful rollout is
+	// enabled.  Ensure the name of the static pod manifest also reflects
+	// the revision to ensure that multiple manifests can coexist.
+	revision := pod.Labels["revision"]
+	revisionSuffix := fmt.Sprintf("-%s", revision)
+	if strings.HasSuffix(pod.Name, revisionSuffix) {
+		baseFileName += revisionSuffix
+	}
+
+	podFileName := baseFileName + ".yaml"
+
 	// Write secrets, config maps and pod to disk
 	// This does not need timeout, instead we should fail hard when we are not able to write.
-	podFileName := o.PodConfigMapNamePrefix + ".yaml"
 	klog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, podFileName))
 	if err := ioutil.WriteFile(path.Join(resourceDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
 		return err
@@ -353,6 +404,14 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		return err
 	}
 
+	// Support custom content copying
+	for _, fn := range o.CopyContentFns {
+		klog.V(2).Infof("Executing copy content function ...")
+		if err := fn(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -362,6 +421,13 @@ func (o *InstallOptions) substituteConfigMap(obj *corev1.ConfigMap) *corev1.Conf
 		newContent := strings.ReplaceAll(oldContent, "REVISION", o.Revision)
 		newContent = strings.ReplaceAll(newContent, "NODE_NAME", o.NodeName)
 		newContent = strings.ReplaceAll(newContent, "NODE_ENVVAR_NAME", strings.ReplaceAll(strings.ReplaceAll(o.NodeName, "-", "_"), ".", "_"))
+
+		// Support custom substitution
+		for _, fn := range o.SubstituteConfigMapFns {
+			klog.V(2).Infof("Substituting config map ...")
+			newContent = fn(newContent)
+		}
+
 		ret.Data[k] = newContent
 	}
 	return ret
