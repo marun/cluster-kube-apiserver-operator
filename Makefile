@@ -95,3 +95,9 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 .PHONY: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
+
+push:
+	docker tag registry.ci.openshift.org/ocp/4.3:cluster-kube-apiserver-operator registry.obsidian:5000/ocp/4.3:cluster-kube-apiserver-operator
+	docker push registry.obsidian:5000/ocp/4.3:cluster-kube-apiserver-operator
+
+graceful: update images push telepresence
