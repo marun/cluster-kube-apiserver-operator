@@ -76,6 +76,7 @@ test-e2e: test-unit
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
+	$(RM) ./graceful-monitor
 .PHONY: clean
 
 # Configure the 'telepresence' target

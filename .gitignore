@@ -1,4 +1,5 @@
 /cluster-kube-apiserver-operator
+/graceful-monitor
 .idea/
 /_output/
 telepresence.log
