@@ -83,3 +83,9 @@ clean:
 # See vendor/github.com/openshift/build-machinery-go/scripts/run-telepresence.sh for usage and configuration details
 export TP_DEPLOYMENT_YAML ?=./manifests/0000_20_kube-apiserver-operator_06_deployment.yaml
 export TP_CMD_PATH ?=./cmd/cluster-kube-apiserver-operator
+
+prepare-graceful: update images
+	docker tag registry.ci.openshift.org/ocp/4.3:cluster-kube-apiserver-operator registry.obsidian:5000/ocp/4.3:cluster-kube-apiserver-operator
+	docker push registry.obsidian:5000/ocp/4.3:cluster-kube-apiserver-operator
+
+graceful: prepare-graceful telepresence
