@@ -307,7 +307,7 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 
 func manageGracefulMonitorPod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/graceful-pod.yaml"))
-	required.Spec.Containers[0].Image = operatorImagePullSpec
+	required.Spec.Containers[0].Image = "registry.obsidian:5000/ocp/4.3:cluster-kube-apiserver-operator" // operatorImagePullSpec
 	required.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/graceful-pod-cm.yaml"))
